@@ -1,0 +1,12 @@
+apply plugin: 'java'
+
+dependencies {
+    compile project(':core')
+
+    compileOnly 'com.google.auto:auto-common:0.8'
+    compileOnly 'com.google.auto.service:auto-service:1.0-rc3'
+    compileOnly 'com.google.dagger:dagger:2.10-rc4'
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
