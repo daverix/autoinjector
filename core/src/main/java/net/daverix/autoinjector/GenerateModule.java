@@ -36,12 +36,9 @@ import java.lang.annotation.Target;
 @Target(ElementType.TYPE)
 public @interface GenerateModule {
     /**
-     * <p>Set to change the generated Dagger module's name. The default name is the name of the
-     * annotated class suffixed with "Module".</p>
-     *
-     * @return a custom name.
+     * @return the name of the Dagger module to generate.
      */
-    String name() default "";
+    String name();
 
     /**
      * Dagger Modules to use to pass on to includes in the generated Dagger module.

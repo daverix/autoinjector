@@ -7,7 +7,8 @@ import java.util.List;
 
 interface Subcomponent {
     String getSimpleName();
-    List<String> getImportNames();
+    List<String> getComponentImports();
+    List<String> getBindMethodImports();
 
     void writeComponent(Writer writer) throws IOException;
 

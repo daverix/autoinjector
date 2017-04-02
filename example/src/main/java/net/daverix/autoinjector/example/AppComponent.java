@@ -10,7 +10,7 @@ import dagger.android.AndroidInjector;
 
 @Component(modules = {
         AndroidInjectionModule.class,
-        MyTestModule.class
+        MyActivityModule.class
 })
 public interface AppComponent {
     Map<Class<? extends Activity>, AndroidInjector.Factory<? extends Activity>> getActivities();

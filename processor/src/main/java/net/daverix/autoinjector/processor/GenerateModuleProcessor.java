@@ -4,6 +4,7 @@ import com.google.auto.service.AutoService;
 
 import net.daverix.autoinjector.GenerateModule;
 import net.daverix.autoinjector.IgnoreBaseClassCheck;
+import net.daverix.autoinjector.SubcomponentModules;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -159,29 +160,60 @@ public class GenerateModuleProcessor extends AbstractProcessor {
                 return;
             }
 
+            List<TypeElement> componentModuleTypes = getSubcomponentModules(method);
+
             //TODO: check base type
             subcomponents.add(new ActivitySubcomponent(
                     injectTypeElement.getQualifiedName().toString(),
-                    injectTypeElement.getSimpleName().toString()));
+                    injectTypeElement.getSimpleName().toString(),
+                    componentModuleTypes.stream().map(type -> type.getSimpleName().toString()).collect(toList()),
+                    componentModuleTypes.stream().map(type -> type.getQualifiedName().toString()).collect(toList())));
         }
 
-        writeDaggerModule(element, includes, subcomponents);
+        AnnotationValue value = getAnnotationValue(annotationMirror, "name");
+        String moduleName = (String) value.getValue();
+        if(moduleName.isEmpty()) {
+            messager.printMessage(Diagnostic.Kind.ERROR,
+                    "Name cannot be empty",
+                    element,
+                    annotationMirror,
+                    value);
+            return;
+        }
+
+        writeDaggerModule(element,
+                moduleName,
+                includes,
+                subcomponents);
+    }
+
+    private List<TypeElement> getSubcomponentModules(ExecutableElement method) {
+        Optional<? extends AnnotationMirror> subComponentAnnotationMirror = getAnnotationMirror(method, SubcomponentModules.class);
+        if(!subComponentAnnotationMirror.isPresent())
+            return new ArrayList<>();
+
+        AnnotationValue subComponentModulesValue = getAnnotationValue(subComponentAnnotationMirror.get(), "value");
+        return getClassArrayAnnotationValue(subComponentModulesValue);
     }
 
     private void writeDaggerModule(TypeElement element,
+                                   String moduleName,
                                    List<TypeElement> includes,
                                    List<Subcomponent> subcomponents) {
-        String moduleName = getModuleName(element);
         String packageName = getPackageName(element);
 
         Set<String> uniqueImports = new HashSet<>();
         for (Subcomponent subcomponent : subcomponents) {
-            uniqueImports.addAll(subcomponent.getImportNames());
+            uniqueImports.addAll(subcomponent.getBindMethodImports());
         }
         uniqueImports.add("dagger.Module");
         uniqueImports.addAll(includes.stream()
                 .map(type -> type.getQualifiedName().toString())
                 .collect(toList()));
+
+        for (Subcomponent subcomponent : subcomponents) {
+            writeSubComponent(element, packageName, subcomponent);
+        }
 
         JavaFileObject jfo;
         try {
@@ -203,19 +235,15 @@ public class GenerateModuleProcessor extends AbstractProcessor {
 
             bw.write("@Module(subcomponents = ");
             if(subcomponents.size() == 1) {
-                bw.write(getSubcomponentAttribute(moduleName, subcomponents.get(0)));
+                bw.write(getSubcomponentAttribute(subcomponents.get(0)));
             } else {
-                bw.write(getSubcomponentAttributes(moduleName, subcomponents));
+                bw.write(getSubcomponentAttributes(subcomponents));
             }
             bw.write(")\n");
             bw.write("abstract class " + moduleName + " {\n");
 
             for (Subcomponent subcomponent : subcomponents) {
                 subcomponent.writeBindMethod(bw);
-            }
-
-            for (Subcomponent subcomponent : subcomponents) {
-                subcomponent.writeComponent(bw);
             }
 
             bw.write("}\n");
@@ -226,24 +254,45 @@ public class GenerateModuleProcessor extends AbstractProcessor {
         }
     }
 
-    private String getSubcomponentAttribute(String moduleName, Subcomponent subcomponent) {
-        return String.format("%s.%s.class", moduleName, subcomponent.getSimpleName());
+    private void writeSubComponent(Element moduleElement, String packageName, Subcomponent subcomponent) {
+        JavaFileObject jfo;
+        try {
+            jfo = filer.createSourceFile(packageName + "." + subcomponent.getSimpleName());
+        } catch (IOException e) {
+            messager.printMessage(Diagnostic.Kind.ERROR,
+                    "Can't create file for dagger sub component:\n" + getStacktrace(e), moduleElement);
+            return;
+        }
+
+        try (BufferedWriter bw = new BufferedWriter(jfo.openWriter())) {
+            bw.write("package " + packageName + ";\n");
+            bw.write("\n");
+
+            for (String importName : subcomponent.getComponentImports()) {
+                bw.write("import " + importName + ";\n");
+            }
+            bw.write("\n");
+
+            subcomponent.writeComponent(bw);
+            bw.flush();
+        } catch (IOException e) {
+            messager.printMessage(Diagnostic.Kind.ERROR,
+                    "Can't write file for dagger sub component:\n" + getStacktrace(e), moduleElement);
+        }
     }
 
-    private String getSubcomponentAttributes(String moduleName, List<Subcomponent> subcomponents) {
+    private String getSubcomponentAttribute(Subcomponent subcomponent) {
+        return String.format("%s.class", subcomponent.getSimpleName());
+    }
+
+    private String getSubcomponentAttributes(List<Subcomponent> subcomponents) {
         return String.format("{\n    %s\n}", subcomponents.stream()
-                .map(component -> getSubcomponentAttribute(moduleName, component))
+                .map(this::getSubcomponentAttribute)
                 .collect(joining(",\n    ")));
     }
 
     private String getPackageName(TypeElement element) {
         return elementUtils.getPackageOf(element).getQualifiedName().toString();
-    }
-
-    private String createStringArray(List<TypeElement> includes) {
-        return includes.stream()
-                .map(type -> type.getSimpleName().toString())
-                .collect(joining(", "));
     }
 
     private boolean isIgnoringBaseClassCheck(TypeElement injectTypeElement) {
@@ -255,15 +304,6 @@ public class GenerateModuleProcessor extends AbstractProcessor {
                 .filter(elem -> elem.getKind() == ElementKind.METHOD)
                 .map(elem -> (ExecutableElement) elem)
                 .collect(toList());
-    }
-
-    private String getModuleName(Element element) {
-        GenerateModule annotation = element.getAnnotation(GenerateModule.class);
-        String moduleName = annotation.name();
-        if(moduleName.isEmpty())
-            moduleName = element.getSimpleName() + "Module";
-
-        return moduleName;
     }
 
     private static boolean isAbstract(Element element) {

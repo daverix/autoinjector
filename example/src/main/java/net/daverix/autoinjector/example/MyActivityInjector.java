@@ -6,5 +6,5 @@ import net.daverix.autoinjector.SubcomponentModules;
 @GenerateModule(name = "MyActivityModule")
 abstract class MyActivityInjector {
     @SubcomponentModules(value = MyModule.class)
-    abstract void injectMyActivity(MyActivity activity);
+    abstract void inject(MyActivity activity);
 }

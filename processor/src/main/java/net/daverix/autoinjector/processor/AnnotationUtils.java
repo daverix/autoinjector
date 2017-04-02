@@ -9,6 +9,7 @@ import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
@@ -51,9 +52,9 @@ final class AnnotationUtils {
         return AS_TYPE.visit(annotationValue);
     }
 
-    static Optional<? extends AnnotationMirror> getAnnotationMirror(TypeElement typeElement, Class<?> clazz) {
+    static Optional<? extends AnnotationMirror> getAnnotationMirror(Element element, Class<?> clazz) {
         String clazzName = clazz.getName();
-        return typeElement.getAnnotationMirrors()
+        return element.getAnnotationMirrors()
                 .stream()
                 .filter(mirror -> mirror.getAnnotationType().toString().equals(clazzName))
                 .findFirst();
