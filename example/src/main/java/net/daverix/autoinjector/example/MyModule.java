@@ -1,4 +1,4 @@
-package net.daverix.autoinjector;
+package net.daverix.autoinjector.example;
 
 import dagger.Module;
 

@@ -1,13 +1,10 @@
 package net.daverix.autoinjector.processor;
 
-import com.google.auto.common.AnnotationMirrors;
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableList;
 
-import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Stream;
 
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -15,6 +12,8 @@ import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
+
+import static java.util.stream.Collectors.toList;
 
 final class AnnotationUtils {
     private static final AnnotationValueVisitor<TypeMirror, Void> AS_TYPE =
@@ -52,7 +51,7 @@ final class AnnotationUtils {
         return AS_TYPE.visit(annotationValue);
     }
 
-    private static Optional<? extends AnnotationMirror> getAnnotationMirror(TypeElement typeElement, Class<?> clazz) {
+    static Optional<? extends AnnotationMirror> getAnnotationMirror(TypeElement typeElement, Class<?> clazz) {
         String clazzName = clazz.getName();
         return typeElement.getAnnotationMirrors()
                 .stream()
@@ -60,19 +59,11 @@ final class AnnotationUtils {
                 .findFirst();
     }
 
-    static Stream<TypeElement> getClassArrayAnnotationValue(TypeElement typeElement,
-                                                            Class<? extends Annotation> annotationClass,
-                                                            String attributeName) throws ProcessingException {
-        Optional<? extends AnnotationMirror> configAnnotationMirror = getAnnotationMirror(typeElement, annotationClass);
-        if (!configAnnotationMirror.isPresent()) {
-            throw new ProcessingException("Cannot find annotation class " + annotationClass, typeElement);
-        }
-
-        AnnotationMirror mirror = configAnnotationMirror.get();
-        return AnnotationMirrors.getAnnotationValue(mirror, attributeName)
-                .accept(asAnnotationValues(), null)
+    static List<TypeElement> getClassArrayAnnotationValue(AnnotationValue annotationValue) {
+        return annotationValue.accept(asAnnotationValues(), null)
                 .stream()
                 .map(AnnotationUtils::asType)
-                .map(MoreTypes::asTypeElement);
+                .map(MoreTypes::asTypeElement)
+                .collect(toList());
     }
 }

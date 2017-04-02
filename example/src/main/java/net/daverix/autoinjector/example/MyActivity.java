@@ -1,8 +1,8 @@
-package net.daverix.autoinjector;
+package net.daverix.autoinjector.example;
 
 
 import dagger.android.DaggerActivity;
 
-@AutoInjector(modules = {MyModule.class})
 public class MyActivity extends DaggerActivity {
+
 }
